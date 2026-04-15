@@ -1,6 +1,6 @@
 {
   "name": "@humanagencyp/records-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Records MCP server for the Human Agency Protocol — personal knowledge store for AI agents",
   "license": "MIT",
   "repository": {
