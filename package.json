@@ -2,6 +2,11 @@
   "name": "@humanagencyp/records-mcp",
   "version": "1.0.1",
   "description": "Records MCP server for the Human Agency Protocol — personal knowledge store for AI agents",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/humanagencyprotocol/hap-records-mcp.git"
+  },
   "type": "module",
   "main": "dist/index.js",
   "bin": {
