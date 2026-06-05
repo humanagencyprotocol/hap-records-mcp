@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS records (
   tags TEXT DEFAULT '[]',
   archived INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT DEFAULT (datetime('now'))
+  updated_at TEXT DEFAULT (datetime('now')),
+  receipt_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_records_type ON records(type);
@@ -64,6 +65,13 @@ async function createSqliteDb(dbPath: string): Promise<Db> {
   db.exec(SCHEMA);
   db.exec(FTS_SCHEMA);
 
+  // Migration: add receipt_id to pre-existing tables (Content Provenance §4.1).
+  // ALTER ... ADD COLUMN throws if it already exists, so guard on table_info.
+  const cols = db.prepare("PRAGMA table_info(records)").all() as Array<{ name: string }>;
+  if (!cols.some((c) => c.name === "receipt_id")) {
+    db.exec("ALTER TABLE records ADD COLUMN receipt_id TEXT");
+  }
+
   return {
     async run(sql: string, params: any[] = []): Promise<void> {
       db.prepare(sql).run(...params);
@@ -99,6 +107,8 @@ async function createPostgresDb(connectionString: string): Promise<Db> {
   const client = await pool.connect();
   try {
     await client.query(pgSchema);
+    // Migration: add receipt_id to pre-existing tables (Content Provenance §4.1).
+    await client.query("ALTER TABLE records ADD COLUMN IF NOT EXISTS receipt_id TEXT");
   } finally {
     client.release();
   }

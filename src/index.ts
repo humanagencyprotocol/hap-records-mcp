@@ -105,6 +105,11 @@ const TOOL_DEFINITIONS = [
           items: { type: "string" },
           description: "Tags for categorization and retrieval",
         },
+        receipt_id: {
+          type: "string",
+          description:
+            "Suveren authorizing receipt id. Injected automatically by the gateway — agents do not set this.",
+        },
       },
       required: ["type", "title"],
     },
@@ -123,6 +128,11 @@ const TOOL_DEFINITIONS = [
         type: {
           type: "string",
           enum: ["note", "decision", "research", "bookmark", "reference"],
+        },
+        receipt_id: {
+          type: "string",
+          description:
+            "Suveren authorizing receipt id for this edit. Injected automatically by the gateway — agents do not set this.",
         },
       },
       required: ["id"],

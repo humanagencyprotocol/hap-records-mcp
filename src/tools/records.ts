@@ -11,6 +11,7 @@ interface RecordRow {
   archived: number;
   created_at: string;
   updated_at: string;
+  receipt_id: string | null;
 }
 
 function parseRecord(row: RecordRow) {
@@ -27,7 +28,9 @@ function parseRecord(row: RecordRow) {
 }
 
 export async function create_record(db: Db, args: Record<string, any>) {
-  const { type, title, content, metadata, tags } = args;
+  // receipt_id: the Suveren receipt that authorized this write (Content
+  // Provenance §4.1). Injected by the gateway; absent on direct/unauthorized calls.
+  const { type, title, content, metadata, tags, receipt_id } = args;
 
   if (!type || !title) {
     throw new Error("'type' and 'title' are required");
@@ -36,8 +39,8 @@ export async function create_record(db: Db, args: Record<string, any>) {
   const id = uuidv4();
 
   await db.run(
-    `INSERT INTO records (id, type, title, content, metadata, tags)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO records (id, type, title, content, metadata, tags, receipt_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       type,
@@ -45,6 +48,7 @@ export async function create_record(db: Db, args: Record<string, any>) {
       content ?? null,
       JSON.stringify(metadata ?? {}),
       JSON.stringify(tags ?? []),
+      receipt_id ?? null,
     ]
   );
 
@@ -101,7 +105,9 @@ export async function update_record(db: Db, args: Record<string, any>) {
     );
   }
 
-  const updatable = ["title", "content", "metadata", "tags"];
+  // receipt_id is updatable so each authorized edit records the receipt that
+  // authorized that version (Content Provenance §4.1).
+  const updatable = ["title", "content", "metadata", "tags", "receipt_id"];
   const setClauses: string[] = [];
   const params: any[] = [];
 
