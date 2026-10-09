@@ -1,6 +1,8 @@
 /**
  * Content Provenance §4.1 — the records store persists the authorizing
- * receipt_id on writes, on both fresh and pre-existing databases.
+ * ticket_id on writes, on both fresh and pre-existing databases. The value is
+ * still stored in the receipt_id column (internal storage name, unchanged by
+ * the v0.7 wire rename of the tool argument receipt_id -> ticket_id).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { tmpdir } from "os";
@@ -12,7 +14,7 @@ import { create_record, get_record, update_record } from "../src/tools/records.j
 
 const RECEIPT = "rcpt-abc-123";
 
-describe("records store — receipt_id provenance (fresh DB)", () => {
+describe("records store — ticket_id provenance (fresh DB)", () => {
   const dbPath = join(tmpdir(), `records-fresh-${process.pid}.db`);
   let db: Db;
 
@@ -27,21 +29,21 @@ describe("records store — receipt_id provenance (fresh DB)", () => {
     delete process.env.DATABASE_URL;
   });
 
-  it("persists receipt_id on create", async () => {
-    const rec = await create_record(db, { type: "note", title: "T", content: "C", receipt_id: RECEIPT });
+  it("persists ticket_id on create (into the receipt_id column)", async () => {
+    const rec = await create_record(db, { type: "note", title: "T", content: "C", ticket_id: RECEIPT });
     const back = await get_record(db, { id: rec.id });
     expect((back as { receipt_id: string }).receipt_id).toBe(RECEIPT);
   });
 
-  it("updates receipt_id on edit (each version records its authorizer)", async () => {
-    const rec = await create_record(db, { type: "note", title: "T2", receipt_id: "rcpt-v1" });
-    await update_record(db, { id: rec.id, content: "edited", receipt_id: "rcpt-v2" });
+  it("updates ticket_id on edit (each version records its authorizer)", async () => {
+    const rec = await create_record(db, { type: "note", title: "T2", ticket_id: "rcpt-v1" });
+    await update_record(db, { id: rec.id, content: "edited", ticket_id: "rcpt-v2" });
     const back = await get_record(db, { id: rec.id });
     expect((back as { receipt_id: string }).receipt_id).toBe("rcpt-v2");
   });
 });
 
-describe("records store — receipt_id migration (pre-existing DB)", () => {
+describe("records store — ticket_id migration (pre-existing DB)", () => {
   const dbPath = join(tmpdir(), `records-migrate-${process.pid}.db`);
   let db: Db;
 
@@ -71,9 +73,20 @@ describe("records store — receipt_id migration (pre-existing DB)", () => {
     expect((back as { receipt_id: string | null }).receipt_id).toBeNull();
   });
 
-  it("persists receipt_id on new writes after migration", async () => {
-    const rec = await create_record(db, { type: "note", title: "New", receipt_id: RECEIPT });
+  it("persists ticket_id on new writes after migration (into the receipt_id column)", async () => {
+    const rec = await create_record(db, { type: "note", title: "New", ticket_id: RECEIPT });
     const back = await get_record(db, { id: rec.id });
     expect((back as { receipt_id: string }).receipt_id).toBe(RECEIPT);
+  });
+});
+
+describe("tool schema — v0.7 wire rename", () => {
+  it("declares ticket_id, not receipt_id, on create_record and update_record's input schema", async () => {
+    const { TOOL_DEFINITIONS } = await import("../src/tools/definitions.js");
+    for (const name of ["create_record", "update_record"]) {
+      const tool = (TOOL_DEFINITIONS as any[]).find((t) => t.name === name)!;
+      expect(tool.inputSchema.properties).toHaveProperty("ticket_id");
+      expect(tool.inputSchema.properties).not.toHaveProperty("receipt_id");
+    }
   });
 });

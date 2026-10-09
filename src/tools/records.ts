@@ -28,9 +28,11 @@ function parseRecord(row: RecordRow) {
 }
 
 export async function create_record(db: Db, args: Record<string, any>) {
-  // receipt_id: the Suveren receipt that authorized this write (Content
-  // Provenance §4.1). Injected by the gateway; absent on direct/unauthorized calls.
-  const { type, title, content, metadata, tags, receipt_id } = args;
+  // ticket_id: the Suveren mandate ticket that authorized this write (Content
+  // Provenance §4.1). Injected by the gateway; absent on direct/unauthorized
+  // calls. Stored on the existing receipt_id column (internal storage name,
+  // unchanged by the v0.7 wire rename of the tool argument).
+  const { type, title, content, metadata, tags, ticket_id } = args;
 
   if (!type || !title) {
     throw new Error("'type' and 'title' are required");
@@ -48,7 +50,7 @@ export async function create_record(db: Db, args: Record<string, any>) {
       content ?? null,
       JSON.stringify(metadata ?? {}),
       JSON.stringify(tags ?? []),
-      receipt_id ?? null,
+      ticket_id ?? null,
     ]
   );
 
@@ -88,7 +90,7 @@ export async function list_records(db: Db, args: Record<string, any>) {
 }
 
 export async function update_record(db: Db, args: Record<string, any>) {
-  const { id, ...fields } = args;
+  const { id, ticket_id, ...fields } = args;
   if (!id) throw new Error("'id' is required");
 
   // Check age — records older than 24 hours cannot be updated
@@ -105,9 +107,7 @@ export async function update_record(db: Db, args: Record<string, any>) {
     );
   }
 
-  // receipt_id is updatable so each authorized edit records the receipt that
-  // authorized that version (Content Provenance §4.1).
-  const updatable = ["title", "content", "metadata", "tags", "receipt_id"];
+  const updatable = ["title", "content", "metadata", "tags"];
   const setClauses: string[] = [];
   const params: any[] = [];
 
@@ -124,6 +124,14 @@ export async function update_record(db: Db, args: Record<string, any>) {
         params.push(fields[key]);
       }
     }
+  }
+
+  // ticket_id is updatable so each authorized edit records the ticket that
+  // authorized that version (Content Provenance §4.1), stored on the
+  // existing receipt_id column (internal storage name, unchanged).
+  if (ticket_id !== undefined) {
+    setClauses.push("receipt_id = ?");
+    params.push(ticket_id);
   }
 
   if (setClauses.length === 0) {
